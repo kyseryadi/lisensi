@@ -1,0 +1,37 @@
+{
+  "name": "license-addon-bank",
+  "version": "1.0.0",
+  "description": "API layanan lisensi addon bank",
+  "main": "src/server.js",
+  "scripts": {
+    "build:vercel": "prisma generate --config prisma.supabase.config.js",
+    "supabase:validate": "prisma validate --config prisma.supabase.config.js",
+    "supabase:deploy": "prisma migrate deploy --config prisma.supabase.config.js",
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "prisma db seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.3",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.11.1",
+    "supertest": "^7.1.1"
+  }
+}

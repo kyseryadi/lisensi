@@ -1,0 +1,560 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "License Addon Bank API",
+    "version": "1.2.0",
+    "description": "API pengelolaan dan pengecekan lisensi addon bank. Status bisnis 0, 20, dan 50 dipertahankan agar kompatibel dengan aplikasi lama."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Server lokal"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Status aplikasi"
+    },
+    {
+      "name": "Auth",
+      "description": "Login user dan JWT"
+    },
+    {
+      "name": "Lisensi",
+      "description": "Registrasi, pengecekan, dan pembaruan lisensi"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Aplikasi berjalan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login user",
+        "description": "Memverifikasi email dan password bcrypt, lalu menghasilkan JWT Bearer token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "message": "Login berhasil",
+                  "data": {
+                    "token": "eyJhbGciOiJIUzI1NiIs...",
+                    "token_type": "Bearer",
+                    "expires_in": "8h",
+                    "user": { "id": "1", "email": "admin@gmail.com" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Email atau password salah"
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/test_lisensi": {
+      "post": {
+        "tags": ["Lisensi"],
+        "summary": "Periksa status lisensi",
+        "description": "Memperbarui versi dan waktu status, lalu memeriksa masa aktif lisensi. Jika kode2 tidak cocok, pencarian fallback dilakukan berdasarkan kode seperti implementasi PHP lama.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TestLisensiRequest" }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/TestLisensiRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hasil pemeriksaan atau respons invalid form yang kompatibel dengan API lama",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TestLisensiResponse" },
+                "examples": {
+                  "active": {
+                    "summary": "Lisensi aktif",
+                    "value": {
+                      "status": "20",
+                      "nama": "Bank Contoh",
+                      "tgl_expired": "2027-12-31 00:00:00",
+                      "tgl_daftar": "2026-07-14 10:30",
+                      "modul": "transfer,mutasi"
+                    }
+                  },
+                  "expired": {
+                    "summary": "Lisensi kedaluwarsa",
+                    "value": {
+                      "status": "50",
+                      "nama": "Bank Contoh",
+                      "tgl_expired": "2025-12-31 00:00:00",
+                      "tgl_daftar": "2025-01-01 09:00",
+                      "modul": "transfer"
+                    }
+                  },
+                  "unknown": {
+                    "summary": "Kode tidak ditemukan",
+                    "value": {
+                      "status": "0",
+                      "nama": "Unknown",
+                      "tgl_expired": "",
+                      "tgl_daftar": "",
+                      "modul": ""
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/post_lisensi": {
+      "post": {
+        "tags": ["Lisensi"],
+        "summary": "Daftarkan atau perbarui nama lisensi",
+        "description": "Membuat lisensi baru jika pasangan kode/kode2 belum tersedia. Jika ditemukan, nama lisensi diperbarui.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PostLisensiRequest" }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/PostLisensiRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lisensi berhasil dibuat atau diperbarui",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PostLisensiResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/lisensi": {
+      "get": {
+        "tags": ["Lisensi"],
+        "summary": "Daftar lisensi",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Cari kode, kode2, nama, atau modul" },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "description": "Kolom pengurutan. tanggal_aktivitas adalah alias tgl_status.",
+            "schema": {
+              "type": "string",
+              "enum": ["tgl_status", "tanggal_aktivitas", "tgl_daftar"],
+              "default": "tgl_daftar"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "description": "Arah pengurutan",
+            "schema": { "type": "string", "enum": ["asc", "desc"], "default": "desc" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar lisensi dan metadata pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Lisensi" } },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Lisensi"],
+        "summary": "Buat lisensi",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ManagedLisensiRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Lisensi berhasil dibuat" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/lisensi/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/LisensiId" }],
+      "get": {
+        "tags": ["Lisensi"],
+        "summary": "Detail lisensi",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Detail lisensi" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/LicenseNotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Lisensi"],
+        "summary": "Perbarui lisensi",
+        "description": "Semua field opsional, tetapi minimal satu field harus dikirim.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ManagedLisensiUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Lisensi berhasil diperbarui" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/LicenseNotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      },
+      "delete": {
+        "tags": ["Lisensi"],
+        "summary": "Hapus lisensi",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Lisensi berhasil dihapus" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/LicenseNotFound" }
+        }
+      }
+    },
+    "/lisensi/summary": {
+      "get": {
+        "tags": ["Lisensi"],
+        "summary": "Summary lisensi",
+        "description": "Menghitung seluruh lisensi, lisensi aktif dengan tgl_expired lebih besar atau sama dengan waktu sekarang, dan lisensi expired dengan tgl_expired lebih kecil dari waktu sekarang.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Summary data lisensi",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "success",
+                  "data": {
+                    "total_lisensi": 100,
+                    "status_aktif": 75,
+                    "status_expired": 25
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/lisensi/post/{id}": {
+      "post": {
+        "tags": ["Lisensi"],
+        "summary": "Perbarui lisensi dari front-end lama",
+        "description": "Endpoint kompatibel dengan AJAX pada view CodeIgniter. Memperbarui nama, tanggal kedaluwarsa, dan modul berdasarkan ID.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/LisensiId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/UpdateLisensiRequest" }
+            },
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateLisensiRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/UpdateSuccess" },
+          "404": { "$ref": "#/components/responses/LicenseNotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/update_lisensi/{id}": {
+      "post": {
+        "tags": ["Lisensi"],
+        "summary": "Perbarui lisensi",
+        "description": "Alias API untuk POST /lisensi/post/{id} dengan request dan respons yang sama.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/LisensiId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateLisensiRequest" }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/UpdateLisensiRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/UpdateSuccess" },
+          "404": { "$ref": "#/components/responses/LicenseNotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "LisensiId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "ID numerik lisensi pada tabel x_lisensi",
+        "schema": { "type": "string", "pattern": "^[0-9]+$", "example": "1" }
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "admin@gmail.com" },
+          "password": { "type": "string", "format": "password", "minLength": 8, "example": "Alh4mdul!ll4hAm4n" }
+        }
+      },
+      "Lisensi": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "1" },
+          "kode": { "type": "string", "example": "ABC123" },
+          "kode2": { "type": "string", "example": "DEVICE01" },
+          "nama": { "type": "string", "example": "Bank Contoh" },
+          "versi": { "type": "string", "example": "1.0.0" },
+          "tgl_status": { "type": "string", "example": "2026-07-17 10:00:00" },
+          "tgl_expired": { "type": "string", "example": "2027-12-31 00:00:00" },
+          "tgl_daftar": { "type": "string", "example": "2026-07-17 09:00:00" },
+          "modul": { "type": "string", "example": "transfer,mutasi" }
+        }
+      },
+      "ManagedLisensiRequest": {
+        "type": "object",
+        "required": ["kode", "nama", "tgl_expired"],
+        "properties": {
+          "kode": { "type": "string", "maxLength": 255, "example": "ABC123" },
+          "kode2": { "type": "string", "nullable": true, "maxLength": 255, "example": "DEVICE01" },
+          "nama": { "type": "string", "maxLength": 255, "example": "Bank Contoh" },
+          "versi": { "type": "string", "nullable": true, "maxLength": 100, "example": "1.0.0" },
+          "tgl_expired": { "type": "string", "format": "date", "example": "2027-12-31" },
+          "modul": { "type": "string", "nullable": true, "example": "transfer,mutasi" }
+        }
+      },
+      "ManagedLisensiUpdateRequest": {
+        "type": "object",
+        "minProperties": 1,
+        "description": "Pada update seluruh field bersifat opsional; kirim minimal satu field.",
+        "properties": {
+          "kode": { "type": "string", "maxLength": 255, "example": "ABC123" },
+          "kode2": { "type": "string", "nullable": true, "maxLength": 255, "example": "DEVICE01" },
+          "nama": { "type": "string", "maxLength": 255, "example": "Bank Contoh Update" },
+          "versi": { "type": "string", "nullable": true, "maxLength": 100, "example": "1.1.0" },
+          "tgl_expired": { "type": "string", "format": "date", "example": "2028-12-31" },
+          "modul": { "type": "string", "nullable": true, "example": "transfer,mutasi" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 20 },
+          "total": { "type": "integer", "example": 25 },
+          "total_pages": { "type": "integer", "example": 2 }
+        }
+      },
+      "TestLisensiRequest": {
+        "type": "object",
+        "required": ["kode", "versi"],
+        "properties": {
+          "kode": { "type": "string", "maxLength": 255, "example": "ABC123" },
+          "kode2": { "type": "string", "nullable": true, "maxLength": 255, "example": "DEVICE01" },
+          "nama": { "type": "string", "nullable": true, "maxLength": 255, "example": "Bank Contoh" },
+          "versi": { "type": "string", "maxLength": 100, "example": "1.0.0" }
+        }
+      },
+      "TestLisensiResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "oneOf": [
+              { "type": "string", "enum": ["0", "20", "50"] },
+              { "type": "integer", "enum": [0] }
+            ],
+            "description": "0: tidak ditemukan/invalid, 20: aktif, 50: kedaluwarsa"
+          },
+          "nama": { "type": "string" },
+          "tgl_expired": { "type": "string", "example": "2027-12-31 00:00:00" },
+          "tgl_daftar": { "type": "string", "example": "2026-07-14 10:30" },
+          "modul": { "type": "string", "example": "transfer,mutasi" }
+        }
+      },
+      "PostLisensiRequest": {
+        "type": "object",
+        "required": ["kode", "nama"],
+        "properties": {
+          "kode": { "type": "string", "maxLength": 255, "example": "ABC123" },
+          "kode2": { "type": "string", "nullable": true, "maxLength": 255, "example": "DEVICE01" },
+          "nama": { "type": "string", "maxLength": 255, "example": "Bank Contoh" }
+        }
+      },
+      "PostLisensiResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["0", "20"], "description": "0: record baru, 20: record sudah ada" },
+          "nama": { "type": "string", "example": "Bank Contoh" },
+          "tgl_expired": { "type": "string", "example": "2026-07-14 00:00:00" }
+        }
+      },
+      "UpdateLisensiRequest": {
+        "type": "object",
+        "required": ["nama", "tgl", "modul"],
+        "properties": {
+          "nama": { "type": "string", "maxLength": 255, "example": "Bank Contoh" },
+          "tgl": { "type": "string", "format": "date", "example": "2027-12-31" },
+          "modul": { "type": "string", "nullable": true, "example": "transfer,mutasi" }
+        }
+      },
+      "UpdatedLisensi": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "1" },
+          "nama": { "type": "string", "example": "Bank Contoh" },
+          "tgl_expired": { "type": "string", "example": "2027-12-31 00:00:00" },
+          "modul": { "type": "string", "example": "transfer,mutasi" }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Bearer token tidak tersedia, tidak valid, atau kedaluwarsa",
+        "content": {
+          "application/json": {
+            "example": { "status": "error", "message": "Token autentikasi diperlukan" }
+          }
+        }
+      },
+      "UpdateSuccess": {
+        "description": "Lisensi berhasil diperbarui",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": { "type": "string", "example": "success" },
+                "message": { "type": "string", "example": "Data lisensi berhasil diperbarui" },
+                "data": { "$ref": "#/components/schemas/UpdatedLisensi" }
+              }
+            }
+          }
+        }
+      },
+      "LicenseNotFound": {
+        "description": "ID lisensi tidak ditemukan",
+        "content": {
+          "application/json": {
+            "example": { "status": "error", "message": "Data lisensi tidak ditemukan" }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Parameter atau body request tidak valid",
+        "content": {
+          "application/json": {
+            "example": {
+              "status": "error",
+              "message": "Data update lisensi tidak valid",
+              "errors": ["tgl harus menggunakan format YYYY-MM-DD"]
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Kesalahan internal server",
+        "content": {
+          "application/json": {
+            "example": { "status": 500, "message": "Terjadi kesalahan pada server" }
+          }
+        }
+      }
+    }
+  }
+}

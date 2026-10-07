@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+node_modules
+.openai
+.wrangler
+tests
+.vite-dev.log
+.vite-dev-error.log

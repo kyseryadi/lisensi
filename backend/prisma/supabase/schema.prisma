@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Lisensi {
+  id         BigInt    @id @default(autoincrement())
+  kode       String    @db.VarChar(255)
+  kode2      String?   @db.VarChar(255)
+  nama       String    @db.VarChar(255)
+  versi      String?   @db.VarChar(100)
+  tglStatus  DateTime? @map("tgl_status") @db.Timestamp(0)
+  tglExpired DateTime  @map("tgl_expired") @db.Timestamp(0)
+  tglDaftar  DateTime  @map("tgl_daftar") @db.Timestamp(0)
+  modul      String?   @db.Text
+
+  @@index([kode], map: "x_lisensi_kode_idx")
+  @@map("x_lisensi")
+}
+
+model User {
+  id        BigInt   @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  @@map("users")
+}
