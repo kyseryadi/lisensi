@@ -2,6 +2,14 @@
 
 Aplikasi manajemen lisensi addon bank.
 
+## Production
+
+- Dashboard: https://lisensi-frontend.vercel.app
+- API health: https://lisensi-backend.vercel.app/health
+- Supabase: project `license-addon-bank`, region Singapore.
+
+Deployment sudah diverifikasi dengan login, CRUD lisensi, routing frontend, dan CORS. Data uji sudah dihapus. Database baru tidak berisi salinan data MySQL lama.
+
 - `backend/`: API Express, Prisma, konfigurasi Vercel dan schema Supabase PostgreSQL.
 - `frontend/`: Dashboard React dan Vite, konfigurasi Vercel.
 
